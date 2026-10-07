@@ -1,0 +1,15 @@
+//@version=5
+indicator("RSI with zones")
+
+length = input.int(14, "RSI Length")
+
+rsiValue = ta.rsi(close, length)
+overbought = 70
+oversold = 30
+
+zone = rsiValue > overbought ? 1 : rsiValue < oversold ? -1 : 0
+
+plot(rsiValue, "RSI", color=color.purple)
+plot(zone, "Zone", color=color.gray)
+hline(overbought, "Overbought", color=color.red)
+hline(oversold, "Oversold", color=color.green)

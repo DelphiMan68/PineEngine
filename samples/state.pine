@@ -1,0 +1,23 @@
+//@version=5
+indicator("Persistent state demo")
+
+// `var` is evaluated only once, on the first bar
+var int counter = 0
+counter := counter + 1
+
+up = close > close[1]
+
+var float lastUpClose = na
+if up
+    lastUpClose := close
+
+barsSinceUp = ta.barssince(up)
+atrValue = ta.atr(14)
+
+if barsSinceUp > 4
+    log.info("No up bar for " + str.tostring(barsSinceUp) + " bars")
+
+plot(counter, "Bar counter")
+plot(lastUpClose, "Last up close")
+plot(barsSinceUp, "Bars since up")
+plot(atrValue, "ATR(14)")

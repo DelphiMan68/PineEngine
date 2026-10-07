@@ -1,0 +1,8 @@
+{
+  "syntheticBars": 120,
+  "seed": 7,
+  "inputs": {
+    "RSI Length": 14
+  },
+  "pretty": true
+}

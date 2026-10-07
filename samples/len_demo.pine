@@ -1,0 +1,9 @@
+//@version=5
+indicator("len() demo")
+
+// len() is a convenience alias for str.length(): it is not part of
+// standard Pine Script, but is provided here since it is commonly assumed.
+label = "bar " + str.tostring(bar_index)
+labelLen = len(label)
+
+plot(labelLen, "len(label)")

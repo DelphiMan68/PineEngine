@@ -1,0 +1,8 @@
+{
+  "syntheticBars": 120,
+  "seed": 7,
+  "inputs": {
+    "Fast Length": 8,
+    "Slow Length": 21
+  }
+}

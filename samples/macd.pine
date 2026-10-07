@@ -1,0 +1,8 @@
+//@version=5
+indicator("MACD")
+
+[macdLine, signalLine, histLine] = ta.macd(close, 12, 26, 9)
+
+plot(macdLine, "MACD", color=color.blue)
+plot(signalLine, "Signal", color=color.orange)
+plot(histLine, "Histogram", color=color.gray)

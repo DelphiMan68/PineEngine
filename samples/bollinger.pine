@@ -1,0 +1,26 @@
+//@version=5
+indicator("Bollinger bands and custom functions", overlay=true)
+
+length = input.int(20, "Length")
+mult = input.float(2.0, "Multiplier")
+
+[basis, upper, lower] = ta.bb(close, length, mult)
+
+// Percentage distance between two values
+pctDiff(a, b) =>
+    b == 0 ? na : (a - b) / b * 100
+
+// Moving average computed by hand with a loop
+manualSma(len) =>
+    total = 0.0
+    for i = 0 to len - 1
+        total := total + close[i]
+    total / len
+
+width = pctDiff(upper, lower)
+
+plot(basis, "Basis", color=color.blue)
+plot(upper, "Upper", color=color.green)
+plot(lower, "Lower", color=color.red)
+plot(width, "Width %")
+plot(manualSma(length), "Manual SMA", color=color.orange)

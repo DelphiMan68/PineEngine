@@ -1,0 +1,504 @@
+// This work is licensed under a Attribution-NonCommercial-ShareAlike 4.0 International (CC BY-NC-SA 4.0) https://creativecommons.org/licenses/by-nc-sa/4.0/
+// © LuxAlgo
+
+//@version=6
+indicator("Sessions [LuxAlgo]", "LuxAlgo - Sessions", overlay = true, max_bars_back = 500, max_lines_count = 500, max_boxes_count = 500, max_labels_count = 500)
+
+//---------------------------------------------------------------------------------------------------------------------}
+// Constants
+//---------------------------------------------------------------------------------------------------------------------{
+color BULL_COLOR         = #089981
+color BEAR_COLOR         = #f23645
+color DATA               = #DBDBDB
+color HEADERS            = #808080
+color BACKGROUND         = #161616
+color BORDERS            = #2E2E2E
+
+string TOP_RIGHT         = "Top Right"
+string BOTTOM_RIGHT      = "Bottom Right"
+string BOTTOM_LEFT       = "Bottom Left"
+
+string TINY              = "Tiny"
+string SMALL             = "Small"
+string NORMAL            = "Normal"
+string LARGE             = "Large"
+string HUGE              = "Huge"
+
+string SESSION_A_GROUP   = "Session A"
+string SESSION_B_GROUP   = "Session B"
+string SESSION_C_GROUP   = "Session C"
+string SESSION_D_GROUP   = "Session D"
+string TIMEZONE_GROUP    = "Timezone"
+string RANGES_GROUP      = "Ranges Settings"
+string STYLE_GROUP       = "Style"
+string DASHBOARD_GROUP   = "Dashboard"
+string DIVIDERS_GROUP    = "Dividers"
+
+string showSessionTooltip        = "Enable or disable this session and all of its optional displays."
+string sessionNameTooltip        = "Set the name displayed for this session."
+string sessionTimeTooltip        = "Set the session's start and end times."
+string sessionRangeTooltip       = "Draw a box around the high-to-low range formed during the session."
+string sessionTrendlineTooltip   = "Draw a linear-regression trendline during the session."
+string sessionMeanTooltip        = "Draw the running arithmetic mean during the session."
+string sessionVwapTooltip        = "Plot the running volume-weighted average price during the session."
+string sessionMaxMinTooltip      = "Extend the completed session's maximum and minimum until the next session begins."
+string sessionColorTooltip       = "Select the color used for this session's visuals."
+string timezoneOffsetTooltip     = "Set the fixed UTC offset used to interpret all session times."
+string exchangeTimezoneTooltip   = "Use the symbol's exchange timezone instead of the fixed UTC offset."
+string rangeTransparencyTooltip  = "Set the transparency of session range boxes from 0 (opaque) to 100 (invisible)."
+string rangeOutlineTooltip       = "Show a dotted outline around each session range box."
+string rangeLabelTooltip         = "Show the session name above each range box."
+string dashboardTooltip          = "Enable or disable the dashboard."
+string advancedDashboardTooltip  = "Add trend, cumulative volume, and volatility statistics to the dashboard."
+string dashboardPositionTooltip  = "Select the dashboard location."
+string dashboardSizeTooltip      = "Select the dashboard text size."
+string sessionDividerTooltip     = "Mark active session bars and session boundaries along the bottom of the chart."
+string dayDividerTooltip         = "Draw a dashed divider and weekday label when a new day begins."
+
+//---------------------------------------------------------------------------------------------------------------------}
+// Inputs
+//---------------------------------------------------------------------------------------------------------------------{
+bool showSessionAInput       = input.bool(true, "Enable", group = SESSION_A_GROUP, tooltip = showSessionTooltip, inline = "sessionA")
+string sessionANameInput     = input.string("New York", "Name", group = SESSION_A_GROUP, tooltip = sessionNameTooltip, inline = "sessionA")
+string sessionATimeInput     = input.session("1300-2200", "Hours", group = SESSION_A_GROUP, tooltip = sessionTimeTooltip)
+bool sessionARangeInput      = input.bool(true, "Range", group = SESSION_A_GROUP, tooltip = sessionRangeTooltip, inline = "sessionAOverlays")
+bool sessionATrendlineInput  = input.bool(false, "Trendline", group = SESSION_A_GROUP, tooltip = sessionTrendlineTooltip, inline = "sessionAOverlays")
+bool sessionAMeanInput       = input.bool(false, "Mean", group = SESSION_A_GROUP, tooltip = sessionMeanTooltip, inline = "sessionAOverlays")
+bool sessionAVwapInput       = input.bool(false, "VWAP", group = SESSION_A_GROUP, tooltip = sessionVwapTooltip, inline = "sessionAOverlays")
+bool sessionAMaxMinInput     = input.bool(false, "Max/Min", group = SESSION_A_GROUP, tooltip = sessionMaxMinTooltip, inline = "sessionAOverlays")
+
+bool showSessionBInput       = input.bool(true, "Enable", group = SESSION_B_GROUP, tooltip = showSessionTooltip, inline = "sessionB")
+string sessionBNameInput     = input.string("London", "Name", group = SESSION_B_GROUP, tooltip = sessionNameTooltip, inline = "sessionB")
+string sessionBTimeInput     = input.session("0700-1600", "Hours", group = SESSION_B_GROUP, tooltip = sessionTimeTooltip)
+bool sessionBRangeInput      = input.bool(true, "Range", group = SESSION_B_GROUP, tooltip = sessionRangeTooltip, inline = "sessionBOverlays")
+bool sessionBTrendlineInput  = input.bool(false, "Trendline", group = SESSION_B_GROUP, tooltip = sessionTrendlineTooltip, inline = "sessionBOverlays")
+bool sessionBMeanInput       = input.bool(false, "Mean", group = SESSION_B_GROUP, tooltip = sessionMeanTooltip, inline = "sessionBOverlays")
+bool sessionBVwapInput       = input.bool(false, "VWAP", group = SESSION_B_GROUP, tooltip = sessionVwapTooltip, inline = "sessionBOverlays")
+bool sessionBMaxMinInput     = input.bool(false, "Max/Min", group = SESSION_B_GROUP, tooltip = sessionMaxMinTooltip, inline = "sessionBOverlays")
+
+bool showSessionCInput       = input.bool(true, "Enable", group = SESSION_C_GROUP, tooltip = showSessionTooltip, inline = "sessionC")
+string sessionCNameInput     = input.string("Tokyo", "Name", group = SESSION_C_GROUP, tooltip = sessionNameTooltip, inline = "sessionC")
+string sessionCTimeInput     = input.session("0000-0900", "Hours", group = SESSION_C_GROUP, tooltip = sessionTimeTooltip)
+bool sessionCRangeInput      = input.bool(true, "Range", group = SESSION_C_GROUP, tooltip = sessionRangeTooltip, inline = "sessionCOverlays")
+bool sessionCTrendlineInput  = input.bool(false, "Trendline", group = SESSION_C_GROUP, tooltip = sessionTrendlineTooltip, inline = "sessionCOverlays")
+bool sessionCMeanInput       = input.bool(false, "Mean", group = SESSION_C_GROUP, tooltip = sessionMeanTooltip, inline = "sessionCOverlays")
+bool sessionCVwapInput       = input.bool(false, "VWAP", group = SESSION_C_GROUP, tooltip = sessionVwapTooltip, inline = "sessionCOverlays")
+bool sessionCMaxMinInput     = input.bool(false, "Max/Min", group = SESSION_C_GROUP, tooltip = sessionMaxMinTooltip, inline = "sessionCOverlays")
+
+bool showSessionDInput       = input.bool(true, "Enable", group = SESSION_D_GROUP, tooltip = showSessionTooltip, inline = "sessionD")
+string sessionDNameInput     = input.string("Sydney", "Name", group = SESSION_D_GROUP, tooltip = sessionNameTooltip, inline = "sessionD")
+string sessionDTimeInput     = input.session("2100-0600", "Hours", group = SESSION_D_GROUP, tooltip = sessionTimeTooltip)
+bool sessionDRangeInput      = input.bool(true, "Range", group = SESSION_D_GROUP, tooltip = sessionRangeTooltip, inline = "sessionDOverlays")
+bool sessionDTrendlineInput  = input.bool(false, "Trendline", group = SESSION_D_GROUP, tooltip = sessionTrendlineTooltip, inline = "sessionDOverlays")
+bool sessionDMeanInput       = input.bool(false, "Mean", group = SESSION_D_GROUP, tooltip = sessionMeanTooltip, inline = "sessionDOverlays")
+bool sessionDVwapInput       = input.bool(false, "VWAP", group = SESSION_D_GROUP, tooltip = sessionVwapTooltip, inline = "sessionDOverlays")
+bool sessionDMaxMinInput     = input.bool(false, "Max/Min", group = SESSION_D_GROUP, tooltip = sessionMaxMinTooltip, inline = "sessionDOverlays")
+
+int timezoneOffsetInput       = input.int(0, "UTC (+/-)", group = TIMEZONE_GROUP, tooltip = timezoneOffsetTooltip, minval = -12, maxval = 14)
+bool useExchangeTimezoneInput = input.bool(false, "Use Exchange Timezone", group = TIMEZONE_GROUP, tooltip = exchangeTimezoneTooltip)
+
+int rangeTransparencyInput   = input.int(90, "Range Area Transparency", group = RANGES_GROUP, tooltip = rangeTransparencyTooltip, minval = 0, maxval = 100)
+bool showRangeOutlineInput   = input.bool(true, "Range Outline", group = RANGES_GROUP, tooltip = rangeOutlineTooltip)
+bool showRangeLabelInput     = input.bool(true, "Range Label", group = RANGES_GROUP, tooltip = rangeLabelTooltip)
+
+color sessionAColorInput     = input.color(#ff5d00, "New York", group = STYLE_GROUP, tooltip = sessionColorTooltip, inline = "sessionColors")
+color sessionBColorInput     = input.color(#2157f3, "London", group = STYLE_GROUP, tooltip = sessionColorTooltip, inline = "sessionColors")
+color sessionCColorInput     = input.color(#e91e63, "Tokyo", group = STYLE_GROUP, tooltip = sessionColorTooltip, inline = "sessionColors2")
+color sessionDColorInput     = input.color(#ffeb3b, "Sydney", group = STYLE_GROUP, tooltip = sessionColorTooltip, inline = "sessionColors2")
+
+bool dashboardInput          = input.bool(false, "Dashboard", group = DASHBOARD_GROUP, tooltip = dashboardTooltip)
+bool advancedDashboardInput  = input.bool(false, "Advanced", group = DASHBOARD_GROUP, tooltip = advancedDashboardTooltip)
+string dashboardPositionInput = input.string(TOP_RIGHT, "Position", group = DASHBOARD_GROUP, tooltip = dashboardPositionTooltip, options = [TOP_RIGHT, BOTTOM_RIGHT, BOTTOM_LEFT])
+string dashboardSizeInput     = input.string(SMALL, "Size", group = DASHBOARD_GROUP, tooltip = dashboardSizeTooltip, options = [TINY, SMALL, NORMAL, LARGE, HUGE])
+
+bool showSessionDividerInput = input.bool(false, "Show Sessions Divider", group = DIVIDERS_GROUP, tooltip = sessionDividerTooltip)
+bool showDayDividerInput     = input.bool(true, "Show Daily Divider", group = DIVIDERS_GROUP, tooltip = dayDividerTooltip)
+
+//---------------------------------------------------------------------------------------------------------------------}
+// Parsed settings
+//---------------------------------------------------------------------------------------------------------------------{
+var parsedDashboardPosition = switch dashboardPositionInput
+    TOP_RIGHT    => position.top_right
+    BOTTOM_RIGHT => position.bottom_right
+    BOTTOM_LEFT  => position.bottom_left
+
+var parsedDashboardSize = switch dashboardSizeInput
+    TINY   => size.tiny
+    SMALL  => size.small
+    NORMAL => size.normal
+    LARGE  => size.large
+    HUGE   => size.huge
+
+string sessionTimezone = useExchangeTimezoneInput ? syminfo.timezone : str.format("UTC{0}{1}", timezoneOffsetInput >= 0 ? "+" : "-", math.abs(timezoneOffsetInput))
+int barNumber = bar_index
+
+//---------------------------------------------------------------------------------------------------------------------}
+// Functions
+//---------------------------------------------------------------------------------------------------------------------{
+cell(table tableId, int column, int row, string data, color textColor = #DBDBDB, string alignment = text.align_right, color background = na, float height = 0.0) =>
+    tableId.cell(column, row, data, text_color = textColor, text_size = parsedDashboardSize, text_halign = alignment, bgcolor = background, height = height)
+
+divider(table tableId, int row, int lastColumn) =>
+    string rowDivider = "━━━━━━━━━━━━━━"
+    tableId.merge_cells(0, row, lastColumn, row)
+    cell(tableId, 0, row, rowDivider, textColor = BORDERS, alignment = text.align_center, height = 0.5)
+
+getSessionAverage(bool sessionActive) =>
+    var int length = 0
+    var float cumulativeClose = na
+    var float average = na
+    bool sessionStarted = sessionActive and not sessionActive[1]
+
+    if sessionStarted
+        length := 1
+        cumulativeClose := close
+        average := close
+    else if sessionActive
+        length += 1
+        cumulativeClose += close
+        average := cumulativeClose / length
+    else
+        average := na
+
+    average
+
+getSessionLinearRegression(bool sessionActive) =>
+    var int length = 0
+    var float cumulativeWeightedClose = na
+    var float cumulativeClose = na
+    var float cumulativeSquaredClose = na
+    var float firstValue = na
+    var float lastValue = na
+    var float deviation = na
+    var float correlation = na
+    bool sessionStarted = sessionActive and not sessionActive[1]
+
+    if sessionStarted
+        length := 1
+        cumulativeWeightedClose := close
+        cumulativeClose := close
+        cumulativeSquaredClose := close * close
+        firstValue := close
+        lastValue := close
+        deviation := 0.0
+        correlation := na
+    else if sessionActive
+        length += 1
+        cumulativeClose += close
+        cumulativeSquaredClose += close * close
+        cumulativeWeightedClose += close * length
+
+        float average = cumulativeClose / length
+        float weightedAverage = cumulativeWeightedClose / (length * (length + 1) / 2.0)
+        float covariance = (weightedAverage - average) * (length + 1) / 2.0
+        float variance = math.max(cumulativeSquaredClose / length - average * average, 0.0)
+        float correlationDenominator = math.sqrt(variance) * (math.sqrt(length * length - 1.0) / (2.0 * math.sqrt(3.0)))
+
+        deviation := math.sqrt(variance)
+        correlation := correlationDenominator != 0.0 ? covariance / correlationDenominator : na
+        firstValue := 4.0 * average - 3.0 * weightedAverage
+        lastValue := 3.0 * weightedAverage - 2.0 * average
+
+    [firstValue, lastValue, deviation, correlation]
+
+getSessionVwap(bool sessionActive) =>
+    var float numerator = na
+    var float denominator = na
+    bool sessionStarted = sessionActive and not sessionActive[1]
+
+    if sessionStarted
+        numerator := close * volume
+        denominator := volume
+    else if sessionActive
+        numerator += close * volume
+        denominator += volume
+    else
+        numerator := na
+
+    [numerator, denominator]
+
+setSessionLine(bool sessionActive, float firstValue, float lastValue, color sessionColor) =>
+    var line lineId = na
+    bool sessionStarted = sessionActive and not sessionActive[1]
+
+    if sessionStarted
+        lineId := line.new(barNumber, firstValue, barNumber, lastValue, color = sessionColor)
+    else if sessionActive and not na(lineId)
+        lineId.set_y1(firstValue)
+        lineId.set_xy2(barNumber, lastValue)
+
+    lineId
+
+getSessionRange(bool sessionActive, string sessionName, color sessionColor, bool drawRange) =>
+    var int sessionStartTime = 0
+    var float sessionHigh = na
+    var float sessionLow = na
+    var box rangeBoxId = na
+    var label rangeLabelId = na
+    bool sessionStarted = sessionActive and not sessionActive[1]
+
+    if sessionStarted
+        sessionStartTime := time
+        sessionHigh := high
+        sessionLow := low
+
+        if drawRange
+            rangeBoxId := box.new(barNumber, sessionHigh, barNumber, sessionLow, bgcolor = color.new(sessionColor, rangeTransparencyInput), border_color = showRangeOutlineInput ? sessionColor : na, border_style = line.style_dotted)
+
+            if showRangeLabelInput
+                rangeLabelId := label.new(sessionStartTime, sessionHigh, sessionName, xloc = xloc.bar_time, textcolor = sessionColor, style = label.style_label_down, color = #00000000, size = size.tiny)
+    else if sessionActive
+        sessionHigh := math.max(high, sessionHigh)
+        sessionLow := math.min(low, sessionLow)
+
+        if drawRange and not na(rangeBoxId)
+            rangeBoxId.set_top(sessionHigh)
+            rangeBoxId.set_rightbottom(barNumber, sessionLow)
+
+            if showRangeLabelInput and not na(rangeLabelId)
+                rangeLabelId.set_xy(int(math.avg(sessionStartTime, time)), sessionHigh)
+
+    [sessionActive ? na : sessionHigh, sessionActive ? na : sessionLow]
+
+//---------------------------------------------------------------------------------------------------------------------}
+// Sessions
+//---------------------------------------------------------------------------------------------------------------------{
+bool sessionAActive = not na(time(timeframe.period, sessionATimeInput, sessionTimezone))
+bool sessionBActive = not na(time(timeframe.period, sessionBTimeInput, sessionTimezone))
+bool sessionCActive = not na(time(timeframe.period, sessionCTimeInput, sessionTimezone))
+bool sessionDActive = not na(time(timeframe.period, sessionDTimeInput, sessionTimezone))
+
+//---------------------------------------------------------------------------------------------------------------------}
+// Dashboard
+//---------------------------------------------------------------------------------------------------------------------{
+int dashboardColumnCount = advancedDashboardInput ? 5 : 2
+int dashboardLastColumn = dashboardColumnCount - 1
+var table dashboardTable = table.new(parsedDashboardPosition, dashboardColumnCount, 7, bgcolor = BACKGROUND, border_width = 0, frame_color = BORDERS, frame_width = 1, force_overlay = true)
+
+if barstate.isfirst and dashboardInput
+    dashboardTable.merge_cells(0, 0, dashboardLastColumn, 0)
+    cell(dashboardTable, 0, 0, "Sessions [LuxAlgo]", textColor = DATA, alignment = text.align_center)
+    divider(dashboardTable, 1, dashboardLastColumn)
+    cell(dashboardTable, 0, 2, "Session", textColor = HEADERS, alignment = text.align_left)
+    cell(dashboardTable, 1, 2, "Status", textColor = HEADERS)
+
+    if advancedDashboardInput
+        cell(dashboardTable, 2, 2, "Trend", textColor = HEADERS)
+        cell(dashboardTable, 3, 2, "Volume", textColor = HEADERS)
+        cell(dashboardTable, 4, 2, "σ", textColor = HEADERS)
+
+    cell(dashboardTable, 0, 3, sessionANameInput, textColor = sessionAColorInput, alignment = text.align_left)
+    cell(dashboardTable, 0, 4, sessionBNameInput, textColor = sessionBColorInput, alignment = text.align_left)
+    cell(dashboardTable, 0, 5, sessionCNameInput, textColor = sessionCColorInput, alignment = text.align_left)
+    cell(dashboardTable, 0, 6, sessionDNameInput, textColor = sessionDColorInput, alignment = text.align_left)
+
+if barstate.islast and dashboardInput
+    string sessionAStatus = showSessionAInput ? (sessionAActive ? "Active" : "Inactive") : "Disabled"
+    string sessionBStatus = showSessionBInput ? (sessionBActive ? "Active" : "Inactive") : "Disabled"
+    string sessionCStatus = showSessionCInput ? (sessionCActive ? "Active" : "Inactive") : "Disabled"
+    string sessionDStatus = showSessionDInput ? (sessionDActive ? "Active" : "Inactive") : "Disabled"
+
+    color sessionAStatusColor = showSessionAInput ? (sessionAActive ? BULL_COLOR : BEAR_COLOR) : HEADERS
+    color sessionBStatusColor = showSessionBInput ? (sessionBActive ? BULL_COLOR : BEAR_COLOR) : HEADERS
+    color sessionCStatusColor = showSessionCInput ? (sessionCActive ? BULL_COLOR : BEAR_COLOR) : HEADERS
+    color sessionDStatusColor = showSessionDInput ? (sessionDActive ? BULL_COLOR : BEAR_COLOR) : HEADERS
+
+    cell(dashboardTable, 1, 3, sessionAStatus, textColor = DATA, background = sessionAStatusColor)
+    cell(dashboardTable, 1, 4, sessionBStatus, textColor = DATA, background = sessionBStatusColor)
+    cell(dashboardTable, 1, 5, sessionCStatus, textColor = DATA, background = sessionCStatusColor)
+    cell(dashboardTable, 1, 6, sessionDStatus, textColor = DATA, background = sessionDStatusColor)
+
+//---------------------------------------------------------------------------------------------------------------------}
+// Session ranges
+//---------------------------------------------------------------------------------------------------------------------{
+var float sessionAMaximum = na
+var float sessionAMinimum = na
+var float sessionBMaximum = na
+var float sessionBMinimum = na
+var float sessionCMaximum = na
+var float sessionCMinimum = na
+var float sessionDMaximum = na
+var float sessionDMinimum = na
+
+if showSessionAInput and (sessionARangeInput or sessionAMaxMinInput)
+    [sessionMaximum, sessionMinimum] = getSessionRange(sessionAActive, sessionANameInput, sessionAColorInput, sessionARangeInput)
+    sessionAMaximum := sessionMaximum
+    sessionAMinimum := sessionMinimum
+
+if showSessionBInput and (sessionBRangeInput or sessionBMaxMinInput)
+    [sessionMaximum, sessionMinimum] = getSessionRange(sessionBActive, sessionBNameInput, sessionBColorInput, sessionBRangeInput)
+    sessionBMaximum := sessionMaximum
+    sessionBMinimum := sessionMinimum
+
+if showSessionCInput and (sessionCRangeInput or sessionCMaxMinInput)
+    [sessionMaximum, sessionMinimum] = getSessionRange(sessionCActive, sessionCNameInput, sessionCColorInput, sessionCRangeInput)
+    sessionCMaximum := sessionMaximum
+    sessionCMinimum := sessionMinimum
+
+if showSessionDInput and (sessionDRangeInput or sessionDMaxMinInput)
+    [sessionMaximum, sessionMinimum] = getSessionRange(sessionDActive, sessionDNameInput, sessionDColorInput, sessionDRangeInput)
+    sessionDMaximum := sessionMaximum
+    sessionDMinimum := sessionMinimum
+
+//---------------------------------------------------------------------------------------------------------------------}
+// Trendlines and dashboard statistics
+//---------------------------------------------------------------------------------------------------------------------{
+bool calculateAdvancedDashboard = dashboardInput and advancedDashboardInput
+
+if showSessionAInput and (sessionATrendlineInput or calculateAdvancedDashboard)
+    [firstValue, lastValue, deviation, correlation] = getSessionLinearRegression(sessionAActive)
+
+    if calculateAdvancedDashboard
+        color trendColor = na(correlation) ? na : correlation >= 0.0 ? BULL_COLOR : BEAR_COLOR
+        cell(dashboardTable, 2, 3, str.tostring(correlation, "#.##"), textColor = DATA, background = trendColor)
+        cell(dashboardTable, 4, 3, str.tostring(deviation, "#.####"), textColor = DATA)
+
+    if sessionATrendlineInput
+        setSessionLine(sessionAActive, firstValue, lastValue, sessionAColorInput)
+
+if showSessionBInput and (sessionBTrendlineInput or calculateAdvancedDashboard)
+    [firstValue, lastValue, deviation, correlation] = getSessionLinearRegression(sessionBActive)
+
+    if calculateAdvancedDashboard
+        color trendColor = na(correlation) ? na : correlation >= 0.0 ? BULL_COLOR : BEAR_COLOR
+        cell(dashboardTable, 2, 4, str.tostring(correlation, "#.##"), textColor = DATA, background = trendColor)
+        cell(dashboardTable, 4, 4, str.tostring(deviation, "#.####"), textColor = DATA)
+
+    if sessionBTrendlineInput
+        setSessionLine(sessionBActive, firstValue, lastValue, sessionBColorInput)
+
+if showSessionCInput and (sessionCTrendlineInput or calculateAdvancedDashboard)
+    [firstValue, lastValue, deviation, correlation] = getSessionLinearRegression(sessionCActive)
+
+    if calculateAdvancedDashboard
+        color trendColor = na(correlation) ? na : correlation >= 0.0 ? BULL_COLOR : BEAR_COLOR
+        cell(dashboardTable, 2, 5, str.tostring(correlation, "#.##"), textColor = DATA, background = trendColor)
+        cell(dashboardTable, 4, 5, str.tostring(deviation, "#.####"), textColor = DATA)
+
+    if sessionCTrendlineInput
+        setSessionLine(sessionCActive, firstValue, lastValue, sessionCColorInput)
+
+if showSessionDInput and (sessionDTrendlineInput or calculateAdvancedDashboard)
+    [firstValue, lastValue, deviation, correlation] = getSessionLinearRegression(sessionDActive)
+
+    if calculateAdvancedDashboard
+        color trendColor = na(correlation) ? na : correlation >= 0.0 ? BULL_COLOR : BEAR_COLOR
+        cell(dashboardTable, 2, 6, str.tostring(correlation, "#.##"), textColor = DATA, background = trendColor)
+        cell(dashboardTable, 4, 6, str.tostring(deviation, "#.####"), textColor = DATA)
+
+    if sessionDTrendlineInput
+        setSessionLine(sessionDActive, firstValue, lastValue, sessionDColorInput)
+
+//---------------------------------------------------------------------------------------------------------------------}
+// Session means
+//---------------------------------------------------------------------------------------------------------------------{
+if showSessionAInput and sessionAMeanInput
+    float sessionAverage = getSessionAverage(sessionAActive)
+    setSessionLine(sessionAActive, sessionAverage, sessionAverage, sessionAColorInput)
+
+if showSessionBInput and sessionBMeanInput
+    float sessionAverage = getSessionAverage(sessionBActive)
+    setSessionLine(sessionBActive, sessionAverage, sessionAverage, sessionBColorInput)
+
+if showSessionCInput and sessionCMeanInput
+    float sessionAverage = getSessionAverage(sessionCActive)
+    setSessionLine(sessionCActive, sessionAverage, sessionAverage, sessionCColorInput)
+
+if showSessionDInput and sessionDMeanInput
+    float sessionAverage = getSessionAverage(sessionDActive)
+    setSessionLine(sessionDActive, sessionAverage, sessionAverage, sessionDColorInput)
+
+//---------------------------------------------------------------------------------------------------------------------}
+// Session VWAPs
+//---------------------------------------------------------------------------------------------------------------------{
+var float sessionAVwap = na
+var float sessionBVwap = na
+var float sessionCVwap = na
+var float sessionDVwap = na
+
+if showSessionAInput and (sessionAVwapInput or calculateAdvancedDashboard)
+    [numerator, denominator] = getSessionVwap(sessionAActive)
+
+    if sessionAVwapInput
+        sessionAVwap := denominator != 0.0 ? numerator / denominator : na
+
+    if calculateAdvancedDashboard
+        cell(dashboardTable, 3, 3, str.tostring(denominator, format.volume), textColor = DATA)
+
+if showSessionBInput and (sessionBVwapInput or calculateAdvancedDashboard)
+    [numerator, denominator] = getSessionVwap(sessionBActive)
+
+    if sessionBVwapInput
+        sessionBVwap := denominator != 0.0 ? numerator / denominator : na
+
+    if calculateAdvancedDashboard
+        cell(dashboardTable, 3, 4, str.tostring(denominator, format.volume), textColor = DATA)
+
+if showSessionCInput and (sessionCVwapInput or calculateAdvancedDashboard)
+    [numerator, denominator] = getSessionVwap(sessionCActive)
+
+    if sessionCVwapInput
+        sessionCVwap := denominator != 0.0 ? numerator / denominator : na
+
+    if calculateAdvancedDashboard
+        cell(dashboardTable, 3, 5, str.tostring(denominator, format.volume), textColor = DATA)
+
+if showSessionDInput and (sessionDVwapInput or calculateAdvancedDashboard)
+    [numerator, denominator] = getSessionVwap(sessionDActive)
+
+    if sessionDVwapInput
+        sessionDVwap := denominator != 0.0 ? numerator / denominator : na
+
+    if calculateAdvancedDashboard
+        cell(dashboardTable, 3, 6, str.tostring(denominator, format.volume), textColor = DATA)
+
+//---------------------------------------------------------------------------------------------------------------------}
+// Session plots
+//---------------------------------------------------------------------------------------------------------------------{
+plot(showSessionAInput and sessionAMaxMinInput ? sessionAMaximum : na, "Session A Maximum", sessionAColorInput, 1, plot.style_linebr)
+plot(showSessionAInput and sessionAMaxMinInput ? sessionAMinimum : na, "Session A Minimum", sessionAColorInput, 1, plot.style_linebr)
+plot(showSessionBInput and sessionBMaxMinInput ? sessionBMaximum : na, "Session B Maximum", sessionBColorInput, 1, plot.style_linebr)
+plot(showSessionBInput and sessionBMaxMinInput ? sessionBMinimum : na, "Session B Minimum", sessionBColorInput, 1, plot.style_linebr)
+plot(showSessionCInput and sessionCMaxMinInput ? sessionCMaximum : na, "Session C Maximum", sessionCColorInput, 1, plot.style_linebr)
+plot(showSessionCInput and sessionCMaxMinInput ? sessionCMinimum : na, "Session C Minimum", sessionCColorInput, 1, plot.style_linebr)
+plot(showSessionDInput and sessionDMaxMinInput ? sessionDMaximum : na, "Session D Maximum", sessionDColorInput, 1, plot.style_linebr)
+plot(showSessionDInput and sessionDMaxMinInput ? sessionDMinimum : na, "Session D Minimum", sessionDColorInput, 1, plot.style_linebr)
+
+plot(sessionAVwapInput ? sessionAVwap : na, "Session A VWAP", sessionAColorInput, 1, plot.style_linebr)
+plot(sessionBVwapInput ? sessionBVwap : na, "Session B VWAP", sessionBColorInput, 1, plot.style_linebr)
+plot(sessionCVwapInput ? sessionCVwap : na, "Session C VWAP", sessionCColorInput, 1, plot.style_linebr)
+plot(sessionDVwapInput ? sessionDVwap : na, "Session D VWAP", sessionDColorInput, 1, plot.style_linebr)
+
+//---------------------------------------------------------------------------------------------------------------------}
+// Session dividers
+//---------------------------------------------------------------------------------------------------------------------{
+plotshape(sessionAActive and showSessionDividerInput and showSessionAInput, title = "Session A Active", style = shape.square, location = location.bottom, color = na, text = ".", textcolor = sessionAColorInput, size = size.tiny, display = display.all - display.status_line, editable = false)
+plotshape(sessionAActive != sessionAActive[1] and showSessionDividerInput and showSessionAInput, title = "Session A Boundary", style = shape.labelup, location = location.bottom, color = na, text = "❚", textcolor = sessionAColorInput, size = size.tiny, display = display.all - display.status_line, editable = false)
+
+plotshape(sessionBActive and showSessionDividerInput and showSessionBInput, title = "Session B Active", style = shape.labelup, location = location.bottom, color = na, text = ".", textcolor = sessionBColorInput, size = size.tiny, display = display.all - display.status_line, editable = false)
+plotshape(sessionBActive != sessionBActive[1] and showSessionDividerInput and showSessionBInput, title = "Session B Boundary", style = shape.labelup, location = location.bottom, color = na, text = "❚", textcolor = sessionBColorInput, size = size.tiny, display = display.all - display.status_line, editable = false)
+
+plotshape(sessionCActive and showSessionDividerInput and showSessionCInput, title = "Session C Active", style = shape.square, location = location.bottom, color = na, text = ".", textcolor = sessionCColorInput, size = size.tiny, display = display.all - display.status_line, editable = false)
+plotshape(sessionCActive != sessionCActive[1] and showSessionDividerInput and showSessionCInput, title = "Session C Boundary", style = shape.labelup, location = location.bottom, color = na, text = "❚", textcolor = sessionCColorInput, size = size.tiny, display = display.all - display.status_line, editable = false)
+
+plotshape(sessionDActive and showSessionDividerInput and showSessionDInput, title = "Session D Active", style = shape.labelup, location = location.bottom, color = na, text = ".", textcolor = sessionDColorInput, size = size.tiny, display = display.all - display.status_line, editable = false)
+plotshape(sessionDActive != sessionDActive[1] and showSessionDividerInput and showSessionDInput, title = "Session D Boundary", style = shape.labelup, location = location.bottom, color = na, text = "❚", textcolor = sessionDColorInput, size = size.tiny, display = display.all - display.status_line, editable = false)
+
+//---------------------------------------------------------------------------------------------------------------------}
+// Daily dividers
+//---------------------------------------------------------------------------------------------------------------------{
+int currentDay = dayofweek
+bool newDay = currentDay != currentDay[1]
+
+if newDay and showDayDividerInput
+    line.new(barNumber, close + syminfo.mintick, barNumber, close - syminfo.mintick, color = color.gray, extend = extend.both, style = line.style_dashed)
+
+plotshape(newDay and currentDay == dayofweek.sunday and showDayDividerInput, title = "Sunday", style = shape.labeldown, location = location.top, color = na, text = "Sunday", textcolor = color.gray, size = size.tiny, display = display.all - display.status_line, editable = false)
+plotshape(newDay and currentDay == dayofweek.monday and showDayDividerInput, title = "Monday", style = shape.labeldown, location = location.top, color = na, text = "Monday", textcolor = color.gray, size = size.tiny, display = display.all - display.status_line, editable = false)
+plotshape(newDay and currentDay == dayofweek.tuesday and showDayDividerInput, title = "Tuesday", style = shape.labeldown, location = location.top, color = na, text = "Tuesday", textcolor = color.gray, size = size.tiny, display = display.all - display.status_line, editable = false)
+plotshape(newDay and currentDay == dayofweek.wednesday and showDayDividerInput, title = "Wednesday", style = shape.labeldown, location = location.top, color = na, text = "Wednesday", textcolor = color.gray, size = size.tiny, display = display.all - display.status_line, editable = false)
+plotshape(newDay and currentDay == dayofweek.thursday and showDayDividerInput, title = "Thursday", style = shape.labeldown, location = location.top, color = na, text = "Thursday", textcolor = color.gray, size = size.tiny, display = display.all - display.status_line, editable = false)
+plotshape(newDay and currentDay == dayofweek.friday and showDayDividerInput, title = "Friday", style = shape.labeldown, location = location.top, color = na, text = "Friday", textcolor = color.gray, size = size.tiny, display = display.all - display.status_line, editable = false)
+plotshape(newDay and currentDay == dayofweek.saturday and showDayDividerInput, title = "Saturday", style = shape.labeldown, location = location.top, color = na, text = "Saturday", textcolor = color.gray, size = size.tiny, display = display.all - display.status_line, editable = false)
+
+//---------------------------------------------------------------------------------------------------------------------}

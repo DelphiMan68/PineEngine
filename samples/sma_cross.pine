@@ -1,0 +1,20 @@
+//@version=5
+indicator("SMA Cross", overlay=true)
+
+fastLen = input.int(10, "Fast Length")
+slowLen = input.int(30, "Slow Length")
+
+fast = ta.sma(close, fastLen)
+slow = ta.sma(close, slowLen)
+
+longSignal = ta.crossover(fast, slow)
+shortSignal = ta.crossunder(fast, slow)
+
+plot(fast, "Fast MA", color=color.blue)
+plot(slow, "Slow MA", color=color.orange)
+
+if longSignal
+    alert("Golden cross")
+
+if shortSignal
+    alert("Death cross")

@@ -1,0 +1,9 @@
+{
+  "syntheticBars": 300,
+  "seed": 42,
+  "inputs": {
+    "Pivot Period": 5,
+    "Minimum Number of Divergence": 1
+  },
+  "pretty": true
+}
