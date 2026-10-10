@@ -80,7 +80,9 @@ var
 begin
   if (P = nil) or (P^ = #0) then
     Exit('');
-  LLen := StrLen(P);
+  LLen := 0;
+  while P[LLen] <> #0 do // StrLen lives in different units under Delphi and FPC
+    Inc(LLen);
   SetLength(LBytes, LLen);
   Move(P^, LBytes[0], LLen);
   Result := TEncoding.UTF8.GetString(LBytes);

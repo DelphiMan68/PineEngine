@@ -1202,7 +1202,7 @@ begin
   if LFunc = 'abs' then
     Exit(PineFloat(Abs(A)));
   if LFunc = 'sqrt' then
-    Exit(PineFloat(Sqrt(Max(0, A))));
+    Exit(PineFloat(Sqrt(Max(0.0, A))));
   if LFunc = 'exp' then
     Exit(PineFloat(Exp(A)));
   if LFunc = 'log' then
@@ -1373,8 +1373,8 @@ begin
       C := A - B;
     if IsNan(C) then
       Exit(PineNA);
-    B := RmaStep(LSt, 0, 0, LBar, Max(C, 0), LLen);
-    D := RmaStep(LSt, 1, 1, LBar, Max(-C, 0), LLen);
+    B := RmaStep(LSt, 0, 0, LBar, Max(C, 0.0), LLen);
+    D := RmaStep(LSt, 1, 1, LBar, Max(-C, 0.0), LLen);
     if IsNan(B) or IsNan(D) then
       Exit(PineNA);
     if D = 0 then

@@ -393,15 +393,85 @@ begin
   Result := FKind = jkNull;
 end;
 
+{ ---------------- string builder ---------------- }
+
+type
+  { Minimal append-only string builder used by the serializer and the parser.
+    It deliberately offers exactly two non-overloaded methods instead of
+    using the RTL's TJsonBuilder: that class has many Append overloads
+    (Char, string, Integer, Boolean, ...) and Free Pascal in Unicode-strings
+    mode cannot always decide which one a one-character literal or a Char
+    variable means ("Can't determine which overloaded function to call").
+    Append takes a string, AppendChar takes a Char - nothing to resolve. }
+  TJsonBuilder = class
+  private
+    FBuf: string;
+    FLen: Integer;
+    procedure Grow(AExtra: Integer);
+  public
+    constructor Create(ACapacity: Integer = 256);
+    function Append(const S: string): TJsonBuilder;
+    function AppendChar(C: Char): TJsonBuilder;
+    function AsString: string;
+  end;
+
+constructor TJsonBuilder.Create(ACapacity: Integer);
+begin
+  inherited Create;
+  if ACapacity < 16 then
+    ACapacity := 16;
+  SetLength(FBuf, ACapacity);
+  FLen := 0;
+end;
+
+procedure TJsonBuilder.Grow(AExtra: Integer);
+var
+  LNewCap: Integer;
+begin
+  if FLen + AExtra <= Length(FBuf) then
+    Exit;
+  LNewCap := Length(FBuf) * 2;
+  if LNewCap < FLen + AExtra then
+    LNewCap := FLen + AExtra;
+  SetLength(FBuf, LNewCap);
+end;
+
+function TJsonBuilder.Append(const S: string): TJsonBuilder;
+var
+  LCount: Integer;
+begin
+  LCount := Length(S);
+  if LCount > 0 then
+  begin
+    Grow(LCount);
+    Move(S[1], FBuf[FLen + 1], LCount * SizeOf(Char));
+    Inc(FLen, LCount);
+  end;
+  Result := Self;
+end;
+
+function TJsonBuilder.AppendChar(C: Char): TJsonBuilder;
+begin
+  Grow(1);
+  Inc(FLen);
+  FBuf[FLen] := C;
+  Result := Self;
+end;
+
+function TJsonBuilder.AsString: string;
+begin
+  Result := Copy(FBuf, 1, FLen);
+end;
+
 { ---------------- serialization ---------------- }
 
 function EscapeJsonString(const S: string): string;
 var
   I: Integer;
   C: Char;
-  LOut: TStringBuilder;
+  LOut: TJsonBuilder;
 begin
-  LOut := TStringBuilder.Create(Length(S) + 2);
+  LOut := TJsonBuilder.Create(Length(S) + 2);
   try
     for I := 1 to Length(S) do
     begin
@@ -423,12 +493,12 @@ begin
           LOut.Append('\r');
       else
         if C < #$20 then
-          LOut.Append('\u').Append(IntToHex(Ord(C), 4))
+          LOut.Append('\u').Append(IntToHex(Integer(Ord(C)), 4))
         else
-          LOut.Append(C);
+          LOut.AppendChar(C);
       end;
     end;
-    Result := LOut.ToString;
+    Result := LOut.AsString;
   finally
     LOut.Free;
   end;
@@ -446,7 +516,7 @@ end;
 
 function TJsonValue.ToJson(APretty: Boolean): string;
 
-  procedure Build(AValue: TJsonValue; ADepth: Integer; AOut: TStringBuilder);
+  procedure Build(AValue: TJsonValue; ADepth: Integer; AOut: TJsonBuilder);
   var
     I: Integer;
 
@@ -518,12 +588,12 @@ function TJsonValue.ToJson(APretty: Boolean): string;
   end;
 
 var
-  LOut: TStringBuilder;
+  LOut: TJsonBuilder;
 begin
-  LOut := TStringBuilder.Create;
+  LOut := TJsonBuilder.Create;
   try
     Build(Self, 0, LOut);
-    Result := LOut.ToString;
+    Result := LOut.AsString;
   finally
     LOut.Free;
   end;
@@ -600,13 +670,13 @@ end;
 
 function TJsonParser.ParseString: string;
 var
-  LOut: TStringBuilder;
+  LOut: TJsonBuilder;
   C: Char;
   LCode: Integer;
   LHex: string;
 begin
   Expect('"');
-  LOut := TStringBuilder.Create;
+  LOut := TJsonBuilder.Create;
   try
     while True do
     begin
@@ -630,21 +700,21 @@ begin
           '/':
             LOut.Append('/');
           'b':
-            LOut.Append(#8);
+            LOut.AppendChar(#8);
           'f':
-            LOut.Append(#12);
+            LOut.AppendChar(#12);
           'n':
-            LOut.Append(#10);
+            LOut.AppendChar(#10);
           'r':
-            LOut.Append(#13);
+            LOut.AppendChar(#13);
           't':
-            LOut.Append(#9);
+            LOut.AppendChar(#9);
           'u':
             begin
               LHex := Copy(FText, FPos + 1, 4);
               if (Length(LHex) < 4) or not TryStrToInt('$' + LHex, LCode) then
                 raise EJsonError.CreateFmt('Invalid \u escape at position %d', [FPos]);
-              LOut.Append(Char(LCode));
+              LOut.AppendChar(Char(LCode));
               Inc(FPos, 4);
             end;
         else
@@ -654,11 +724,11 @@ begin
       end
       else
       begin
-        LOut.Append(C);
+        LOut.AppendChar(C);
         Advance;
       end;
     end;
-    Result := LOut.ToString;
+    Result := LOut.AsString;
   finally
     LOut.Free;
   end;
