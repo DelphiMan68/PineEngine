@@ -19,7 +19,15 @@ uses
   SysUtils, Classes, Math, Generics.Collections;
 
 type
-  EPineError = class(Exception);
+  { Base class of every error the interpreter raises on purpose. Line is the
+    1-based line of the script that caused it, or 0 when it isn't known
+    (yet): the lexer/parser put the line in the message, and the
+    interpreter stamps Line on runtime errors as they unwind through the
+    statement/call that was executing - see TPineInterpreter.ExecStatement. }
+  EPineError = class(Exception)
+  public
+    Line: Integer;
+  end;
   EPineSyntaxError = class(EPineError);
   EPineRuntimeError = class(EPineError);
 

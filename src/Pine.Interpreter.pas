@@ -49,6 +49,7 @@ type
     function EvalMethodCall(ANode: TMethodCallNode): TPineValue;
     function EvalSwitch(ANode: TSwitchNode): TPineValue;
     function CallUserFunction(AFunc: TFuncDeclNode; AArgs: TPineArgs): TPineValue;
+    function ExecStatementCore(ANode: TPineNode): TPineValue;
     function ExecFor(ANode: TForNode): TPineValue;
     function ExecWhile(ANode: TWhileNode): TPineValue;
   public
@@ -70,6 +71,25 @@ function RunPineScript(const ASource: string; ABars: TPineBarSet;
   AInputOverrides: TDictionary<string, TPineValue> = nil): TPineContext;
 
 implementation
+
+{ Records on an error which script line it came from, unless something deeper
+  in the call stack already did (the innermost line is the useful one).
+  break/continue are control flow riding on the same exception class, not
+  errors, so they are left alone. }
+procedure StampLine(E: EPineError; ALine: Integer);
+begin
+  if (E.Line = 0) and not ((E is EPineBreak) or (E is EPineContinue)) then
+    E.Line := ALine;
+end;
+
+{ Turns any foreign exception (a Delphi/RTL one such as EConvertError or
+  EInvalidOp, i.e. a bug or an unforeseen input rather than a deliberate
+  interpreter error) into a runtime error that carries the script line. }
+function WrapException(E: Exception; ALine: Integer): EPineRuntimeError;
+begin
+  Result := EPineRuntimeError.CreateFmt('%s: %s', [E.ClassName, E.Message]);
+  Result.Line := ALine;
+end;
 
 const
   CMaxLoopIterations = 1000000;
@@ -200,6 +220,21 @@ begin
 end;
 
 function TPineInterpreter.ExecStatement(ANode: TPineNode): TPineValue;
+begin
+  try
+    Result := ExecStatementCore(ANode);
+  except
+    on E: EPineError do
+    begin
+      StampLine(E, ANode.Line);
+      raise;
+    end;
+    on E: Exception do
+      raise WrapException(E, ANode.Line);
+  end;
+end;
+
+function TPineInterpreter.ExecStatementCore(ANode: TPineNode): TPineValue;
 var
   LDecl: TVarDeclNode;
   LTuple: TTupleDeclNode;
@@ -620,15 +655,27 @@ var
 begin
   LArgs := TPineArgs.Create;
   try
-    for I := 0 to High(ANode.Args) do
-      LArgs.Add(ANode.Args[I].Name, Eval(ANode.Args[I].Expr));
-    // user defined functions take precedence over built-ins
-    if FProgram.Functions.TryGetValue(ANode.Name, LFunc) then
-      Exit(CallUserFunction(LFunc, LArgs));
-    Result := CallBuiltin(FContext, ANode.Name, ANode.SiteId, LArgs, LHandled);
-    if not LHandled then
-      raise EPineRuntimeError.CreateFmt('Unknown function "%s" at line %d',
-        [ANode.Name, ANode.Line]);
+    try
+      for I := 0 to High(ANode.Args) do
+        LArgs.Add(ANode.Args[I].Name, Eval(ANode.Args[I].Expr));
+      // user defined functions take precedence over built-ins
+      if FProgram.Functions.TryGetValue(ANode.Name, LFunc) then
+        Exit(CallUserFunction(LFunc, LArgs));
+      Result := CallBuiltin(FContext, ANode.Name, ANode.SiteId, LArgs, LHandled);
+      if not LHandled then
+        raise EPineRuntimeError.CreateFmt('Unknown function "%s" at line %d',
+          [ANode.Name, ANode.Line]);
+    except
+      // stamp the line of THIS call - more precise than the start of the
+      // (possibly multi-line) statement around it
+      on E: EPineError do
+      begin
+        StampLine(E, ANode.Line);
+        raise;
+      end;
+      on E: Exception do
+        raise WrapException(E, ANode.Line);
+    end;
   finally
     LArgs.Free;
   end;
@@ -671,14 +718,24 @@ begin
       [ANode.Method, LBaseValue.KindName, ANode.Line]);
   LArgs := TPineArgs.Create;
   try
-    LArgs.Add('', LBaseValue); // the object itself is always the first argument
-    for I := 0 to High(ANode.Args) do
-      LArgs.Add(ANode.Args[I].Name, Eval(ANode.Args[I].Expr));
-    Result := CallBuiltin(FContext, LNamespace + '.' + ANode.Method, ANode.SiteId,
-      LArgs, LHandled);
-    if not LHandled then
-      raise EPineRuntimeError.CreateFmt('Unknown method "%s.%s" at line %d',
-        [LNamespace, ANode.Method, ANode.Line]);
+    try
+      LArgs.Add('', LBaseValue); // the object itself is always the first argument
+      for I := 0 to High(ANode.Args) do
+        LArgs.Add(ANode.Args[I].Name, Eval(ANode.Args[I].Expr));
+      Result := CallBuiltin(FContext, LNamespace + '.' + ANode.Method, ANode.SiteId,
+        LArgs, LHandled);
+      if not LHandled then
+        raise EPineRuntimeError.CreateFmt('Unknown method "%s.%s" at line %d',
+          [LNamespace, ANode.Method, ANode.Line]);
+    except
+      on E: EPineError do
+      begin
+        StampLine(E, ANode.Line);
+        raise;
+      end;
+      on E: Exception do
+        raise WrapException(E, ANode.Line);
+    end;
   finally
     LArgs.Free;
   end;

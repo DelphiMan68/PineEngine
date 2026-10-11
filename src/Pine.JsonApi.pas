@@ -60,7 +60,13 @@ unit Pine.JsonApi;
   }
 
   Response shape (error):
-  { "error": { "type": "input"|"syntax"|"runtime"|"internal", "message": "..." } } *)
+  { "error": { "type": "input"|"syntax"|"runtime"|"internal", "message": "...",
+               "line": 12, "sourceLine": "x = foo(1,"  } }
+  "line" is the 1-based line of the Pine script that caused a syntax or
+  runtime error, and "sourceLine" the text of that line; both are left out
+  when the error isn't tied to a script line (bad candles/settings JSON, an
+  empty script, ...). For a runtime error inside a user-defined function
+  it is the line inside that function's body where things went wrong. *)
 
 {$IFDEF FPC}
   {$MODE DELPHI}
@@ -313,7 +319,55 @@ begin
   end;
 end;
 
-function BuildErrorJson(const AKind, AMessage: string): string;
+{ Finds the script line a lexer/parser/interpreter message refers to, for
+  errors that didn't get an explicit line stamped on them: the last
+  "line <digits>" in the text ("... at line 12", "(line 12)", "at line 12,
+  column 4"). 0 if there is none. }
+function LineFromMessage(const AMessage: string): Integer;
+var
+  I, J, LStart: Integer;
+begin
+  Result := 0;
+  I := 1;
+  while I + 4 <= Length(AMessage) do
+  begin
+    if (AMessage[I] = 'l') and (Copy(AMessage, I, 5) = 'line ') then
+    begin
+      LStart := I + 5;
+      J := LStart;
+      while (J <= Length(AMessage)) and (AMessage[J] >= '0') and (AMessage[J] <= '9') do
+        Inc(J);
+      if J > LStart then
+        Result := StrToIntDef(Copy(AMessage, LStart, J - LStart), 0);
+      I := J;
+    end
+    else
+      Inc(I);
+  end;
+end;
+
+{ The text of one (1-based) line of the script, trimmed, or '' if the line
+  number is out of range. }
+function ScriptLineText(const AScript: string; ALine: Integer): string;
+var
+  LLines: TStringList;
+begin
+  Result := '';
+  if ALine < 1 then
+    Exit;
+  LLines := TStringList.Create;
+  try
+    LLines.Text := AScript;
+    if ALine <= LLines.Count then
+      Result := Trim(LLines[ALine - 1]);
+  finally
+    LLines.Free;
+  end;
+end;
+
+{ ALine = 0 means "no line known" and leaves "line"/"sourceLine" out. }
+function BuildErrorJson(const AKind, AMessage: string; ALine: Integer;
+  const ASourceLine: string): string;
 var
   LRoot, LErr: TJsonValue;
 begin
@@ -322,6 +376,12 @@ begin
     LErr := JsonObj;
     LErr.Put('type', JsonStr(AKind));
     LErr.Put('message', JsonStr(AMessage));
+    if ALine > 0 then
+    begin
+      LErr.Put('line', JsonInt(ALine));
+      if ASourceLine <> '' then
+        LErr.Put('sourceLine', JsonStr(ASourceLine));
+    end;
     LRoot.Put('error', LErr);
     Result := LRoot.ToJson(False);
   finally
@@ -338,6 +398,7 @@ var
   LCtx: TPineContext;
   LPretty: Boolean;
   LCandlesText, LSettingsText: string;
+  LErrorLine: Integer;
 begin
   LCandlesRoot := nil;
   LSettingsRoot := nil;
@@ -387,13 +448,25 @@ begin
       end;
     except
       on E: EPineSyntaxError do
-        Result := BuildErrorJson('syntax', E.Message);
+      begin
+        LErrorLine := E.Line;
+        if LErrorLine = 0 then
+          LErrorLine := LineFromMessage(E.Message);
+        Result := BuildErrorJson('syntax', E.Message, LErrorLine,
+          ScriptLineText(AScriptSource, LErrorLine));
+      end;
       on E: EPineRuntimeError do
-        Result := BuildErrorJson('runtime', E.Message);
+      begin
+        LErrorLine := E.Line;
+        if LErrorLine = 0 then
+          LErrorLine := LineFromMessage(E.Message);
+        Result := BuildErrorJson('runtime', E.Message, LErrorLine,
+          ScriptLineText(AScriptSource, LErrorLine));
+      end;
       on E: EJsonError do
-        Result := BuildErrorJson('input', 'Invalid JSON: ' + E.Message);
+        Result := BuildErrorJson('input', 'Invalid JSON: ' + E.Message, 0, '');
       on E: Exception do
-        Result := BuildErrorJson('internal', E.Message);
+        Result := BuildErrorJson('internal', E.Message, 0, '');
     end;
   finally
     LCtx.Free;
